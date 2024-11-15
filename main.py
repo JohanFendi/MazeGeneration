@@ -1,6 +1,7 @@
 import pygame_widgets as pg_widgets
 import pygame as pg
 
+from button import *
 from maze import * 
 from constants import *
 from pygame_widgets.slider import Slider
@@ -10,44 +11,45 @@ from pygame_widgets.textbox import TextBox
 
 def main():
     window = pg.display.set_mode((WINDOW_WIDTH, WINDOW_HEIGHT))
-    pg.display.set_caption("Press S to start algorithm, and R to reset")
+    clock = pg.time.Clock()
 
     # Create two sliders for adjusting the maze's width and height, each with a corresponding text box
-    height_slider = Slider(window, SLIDER_X_CORD, WINDOW_HEIGHT//4, SLIDER_LENGTH, 
-                           SLIDER_THICKNESS, min=MIN_MAZE_HEIGHT, max=MAX_MAZE_HEIGHT, step=2, initial=MIN_MAZE_HEIGHT)
-    width_slider = Slider(window, SLIDER_X_CORD, WINDOW_HEIGHT//2, SLIDER_LENGTH, 
-                          SLIDER_THICKNESS, min=MIN_MAZE_WIDTH, max=MAX_MAZE_WIDTH, step=2, initial=MIN_MAZE_WIDTH)
+    height_slider = Slider(window, SLIDER_X_CORD, WINDOW_HEIGHT//4, SLIDER_LENGTH, SLIDER_THICKNESS, 
+                           min=MIN_MAZE_HEIGHT, max=MAX_MAZE_HEIGHT, step=2, initial=MIN_MAZE_HEIGHT)
+    width_slider = Slider(window, SLIDER_X_CORD, WINDOW_HEIGHT//2, SLIDER_LENGTH, SLIDER_THICKNESS, 
+                          min=MIN_MAZE_WIDTH, max=MAX_MAZE_WIDTH, step=2, initial=MIN_MAZE_WIDTH)
+    
     height_box = TextBox(window, BOX_X_CORD , WINDOW_HEIGHT//4 - 1.2*SLIDER_BOX_WIDTH, 
                         SLIDER_BOX_WIDTH, SLIDER_BOX_WIDTH, fontSize=FONT_SIZE)
     width_box = TextBox(window, BOX_X_CORD , WINDOW_HEIGHT//2 - 1.2*SLIDER_BOX_WIDTH, 
                         SLIDER_BOX_WIDTH, SLIDER_BOX_WIDTH, fontSize=FONT_SIZE)
+    
     height_box.disable() # Makes boxes act only as labels, and not as input fields
     width_box.disable()
 
-    running = True
-    maze_reseted = True
+    start_button = Button(START_BUTTON_X_CORD, START_BUTTON_Y_CORD, START_BUTTON_WIDTH, 
+                          BUTTON_HEIGHT, START_BUTTON_COLOR, START_BUTTON_TEXT)
+    
+    reset_button = Button(RESET_BUTTON_X_CORD, RESET_BUTTON_Y_CORD, RESET_BUTTON_WIDTH, 
+                          BUTTON_HEIGHT, RESET_BUTTON_COLOR, RESET_BUTTON_TEXT)
+
     maze_width = MIN_MAZE_WIDTH
-    maze_height = MAX_MAZE_HEIGHT
+    maze_height = MIN_MAZE_HEIGHT
+    maze = None
+    running = True
     while running:
         events = pg.event.get()
         for event in events:
+            if start_button.is_pressed(event):
+                maze = Maze(maze_height, maze_width)
+                
+            if reset_button.is_pressed(event):
+                maze = None
 
             if event.type == pg.QUIT: 
                 running = False
 
-            if event.type == pg.KEYDOWN:  
-                if event.key == pg.K_s and maze_reseted: # Starts algorithm
-                    corner_x = MAX_GRAPHICAL_MAZE_WIDTH // 2 - (maze_width * CELL_WIDTH) // 2
-                    corner_y = WINDOW_HEIGHT // 2 - (maze_height * CELL_WIDTH) // 2
-                    maze = Maze(maze_height, maze_width, CELL_WIDTH, 30, corner_x, corner_y)
-                    maze.kruskals(window)
-                    maze_reseted = False
-                
-                if event.key == pg.K_r: # Resets the maze
-                    maze_reseted = True
-
-        
-        if maze_reseted: # Draws the initial maze layout without any algorithm applied
+        if maze is None: # Draws the maze is the algorithm is not started
             height_slider.value = adjust_slider(height_slider.value)
             width_slider.value = adjust_slider(width_slider.value)
             maze_width = width_slider.getValue()
@@ -55,18 +57,25 @@ def main():
             height_box.setText(height_slider.getValue())
             width_box.setText(width_slider.getValue())
                     
-    
-            window.fill((255, 255, 255))
+            window.fill(BACKGROUND_COLOR)
             draw_maze(window, maze_width, maze_height)
-            pg.draw.polygon(window, SIDE_BAR_COLOR,  # Draws sidebar
+            pg.draw.polygon(window, SIDEBAR_COLOR,  # Draws sidebar
                 ((MAX_GRAPHICAL_MAZE_WIDTH, 0), (MAX_GRAPHICAL_MAZE_WIDTH + SIDEBAR_WIDTH, 0),
                 (MAX_GRAPHICAL_MAZE_WIDTH + SIDEBAR_WIDTH, WINDOW_HEIGHT), (MAX_GRAPHICAL_MAZE_WIDTH, WINDOW_HEIGHT)))
-
+            
+            start_button.draw(window)
+            reset_button.draw(window)
             pg_widgets.update(events)
-            pg.display.update()
+
+        elif len(maze.edges) > 0: #Executes one iteration of kruskals algorithm
+            maze.kruskals_step(window, clock)
+            maze.draw(window)
+
+        pg.display.update()
 
 
 #Draws maze in a checkered pattern
+#Does not create the actual maze
 def draw_maze(window, maze_width, maze_height):
     graphical_corner_x = MAX_GRAPHICAL_MAZE_WIDTH // 2 - (maze_width * CELL_WIDTH) // 2
     graphical_corner_y = WINDOW_HEIGHT // 2 - (maze_height * CELL_WIDTH) // 2
@@ -98,6 +107,4 @@ def adjust_slider(value): # Adjust sliders to display values following the formu
 
 
 if __name__ == '__main__':
-    pg.init()
-    pg.font.init()
     main()
